@@ -1,0 +1,21 @@
+{
+  
+  "exclude": [
+    "**/__pycache__",
+    "/typestubs"
+  ],
+
+  "ignore": [
+    "src/oldstuff"
+  ],
+
+  "defineConstant": {
+    "DEBUG": true
+  },
+
+  "stubPath": "stubs",
+
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+
+}
