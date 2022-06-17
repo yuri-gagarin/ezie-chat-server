@@ -1,28 +1,42 @@
 from flask_socketio import SocketIO
+from flask import request
+from storage.redis_controller import RedisController
 
-"""
-Provides some arithmetic functions
-"""
 class SocketIOServer:
+  """
+  SocketIOServer class
+  """
+  redisInstance = RedisController()
+
   def __init__(self, app):
-    self.socketio = SocketIO(app, cors_allowed_origins='*', logger=True,  engineio_logger=True)
+    self.socketio = SocketIO(app, cors_allowed_origins='*')
     self.app = app
   
   def connection(self) -> None:
     """Connection handling"""
-    @self.socketio.on("connection")
-    def handle_connection():
+    @self.socketio.on("connect")
+    def handle_connection(data):
       """send a welcome message"""
-      print("Client connected")
-
+      client_info = { 'socket_id': request.sid, 'namespace': request.namespace, 'message': "You are now connected live" }
+      self.redisInstance.add_connected_client_info(request.sid)
+      self.socketio.emit("client connected", client_info)
+      print("Client has connected")
+      print("Number of connected clients is: " + str(self.redisInstance.get_number_of_connected_clients()))
+    
+    @self.socketio.on("disconnect")
+    def handle_disconnection():
+      print("Client has disconnected")
+      self.redisInstance.remove_connected_client_info(request.sid)
+      print("Number of connected clients is: " + str(self.redisInstance.get_number_of_connected_clients()))
+  
   def message_listeners(self) -> None:
     @self.socketio.on("message")
     def handle_message(message_data: str) -> None:
       print('received message: ' + message_data)
 
   def run(self) -> 'SocketIOServer':
-    self.socketio.run(self.app)
     self.connection()
     self.message_listeners()
-    print("ran all")
+    self.socketio.run(self.app)
+    self.redisInstance.setup()
     return self
