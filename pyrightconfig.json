@@ -13,6 +13,9 @@
     "DEBUG": true
   },
 
+  "reportUntypedFunctionDecorator": "warning",
+  "reportUntypedClassDecorator": "warning",
+
   "stubPath": "stubs",
 
   "reportMissingImports": true,
