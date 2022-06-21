@@ -1,4 +1,4 @@
-from typing import List, TypedDict
+from typing import List, Literal, TypedDict
 
 PrivateRoomData = TypedDict("PrivateRoomData", { "room_name": str, "socket_id": str, "user_name": str })
 
@@ -11,6 +11,14 @@ SpecificPrivateRoomInfo = TypedDict("SpecificPrivateRoomInfo", {
   "room_name": str,
   "connected_clients": List[str],
   "num_of_connected_clients": int
+})
+
+QueriedRoomData = TypedDict("QueriedRoomData", {
+  "room_type": Literal["general", "private"],
+  "room_name": str,
+  "num_of_connected_clients": int,
+  "num_of_messages": int,
+  "messages": List[str]
 })
 
 ClientData = TypedDict("ClientData", { "user_id": str, "socket_id": str, "user_name": str })
