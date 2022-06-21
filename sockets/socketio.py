@@ -35,7 +35,7 @@ class SocketIOServer:
     def join_room(data: Dict[str, str]) -> None:
       print("Joining a room")
       print(data)
-  
+      self.socketio.
 
   def message_listeners(self) -> None:
     @self.socketio.on("message")
