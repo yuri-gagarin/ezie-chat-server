@@ -1,7 +1,7 @@
 from flask_socketio import SocketIO, join_room, leave_room, Namespace
 from flask import request
 from storage.redis_controller import RedisControllerInstance
-from .custom_types import ClientData
+from custom_types.socket_io_stubs import ClientData
 
 """
 class SocketIOServer:
@@ -45,6 +45,11 @@ class SocketIOServer:
     self.redisInstance.setup()
     return self
 """
+class SocketIOChatNamespace(Namespace):
+    def on_connect(self, data: ClientData) -> None:
+        print("Connected to Room")
+        print(data)
+
 class SocketIODefaultNamespace(Namespace):
 
     def on_connect(self, data: str) -> None:
@@ -59,8 +64,13 @@ class SocketIODefaultNamespace(Namespace):
         RedisControllerInstance.remove_connected_client_info(request.sid) # type: ignore
         print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
     
-    def on_join_room(self) -> None:
-        pass
+    def on_join_room(self, data: ClientData) -> None:
+        print("Joining room")
+        print(data)
+        user_name = data["user_name"]
+        sid = request.sid # type: ignore
+        room_name: str = "room" + "_" + user_name + "_" + sid
+        print(join_room(room_name, sid, "/"))
     
 
 class SocketIOInstance: 
@@ -70,6 +80,7 @@ class SocketIOInstance:
     
     def run(self) -> "SocketIOInstance":
         self.socketio.on_namespace(SocketIODefaultNamespace("/"))
+        self.socketio.on_namespace(SocketIOChatNamespace("/chats"))
         self.socketio.run(self.app)
         return self
 
