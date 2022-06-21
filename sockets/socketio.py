@@ -1,12 +1,10 @@
-from flask_socketio import SocketIO, join_room, leave_room
+from flask_socketio import SocketIO, join_room, leave_room, Namespace
 from flask import request
-from storage.redis_controller import RedisController
-from typing import Dict
+from storage.redis_controller import RedisControllerInstance
+from .custom_types import ClientData
 
+"""
 class SocketIOServer:
-  """
-  SocketIOServer class
-  """
   redisInstance = RedisController()
 
   def __init__(self, app):
@@ -14,10 +12,8 @@ class SocketIOServer:
     self.app = app
   
   def connection(self) -> None:
-    """Connection handling"""
     @self.socketio.on("connect")
     def handle_connection(data: str) -> None:
-      """send a welcome message"""
       client_info = { 'socket_id': request.sid, 'namespace': request.namespace, 'message': "You are now connected live" } # type: ignore
       self.redisInstance.add_connected_client_info(request.sid) # type: ignore
       self.socketio.emit("client connected", client_info)
@@ -32,10 +28,9 @@ class SocketIOServer:
   
   def room_handlers(self) -> None:
     @self.socketio.on("join-room")
-    def join_room(data: Dict[str, str]) -> None:
+    def join_room(client_user_data: ClientData) -> None:
       print("Joining a room")
-      print(data)
-      self.socketio.
+      f = client_user_data["socket_id"]
 
   def message_listeners(self) -> None:
     @self.socketio.on("message")
@@ -49,3 +44,33 @@ class SocketIOServer:
     self.socketio.run(self.app)
     self.redisInstance.setup()
     return self
+"""
+class SocketIODefaultNamespace(Namespace):
+
+    def on_connect(self, data: str) -> None:
+        client_info = { 'socket_id': request.sid, 'namespace': request.namespace, 'message': "You are now connected live" } # type: ignore
+        RedisControllerInstance.add_connected_client_info(request.sid) # type: ignore
+        self.socketio.emit("client connected", client_info)
+        print("Client has connected")
+        print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
+
+    def on_disconnect(self) -> None:
+        print("Client has disconnected")
+        RedisControllerInstance.remove_connected_client_info(request.sid) # type: ignore
+        print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
+    
+    def on_join_room(self) -> None:
+        pass
+    
+
+class SocketIOInstance: 
+    def __init__(self, app) -> None:
+        self.socketio = SocketIO(app, cors_allowed_origins='*', logger=True, engineio_logger=True)
+        self.app = app
+    
+    def run(self) -> "SocketIOInstance":
+        self.socketio.on_namespace(SocketIODefaultNamespace("/"))
+        self.socketio.run(self.app)
+        return self
+
+
