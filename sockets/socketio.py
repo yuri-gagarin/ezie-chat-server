@@ -1,7 +1,9 @@
-from flask_socketio import SocketIO, join_room, leave_room, Namespace
+from flask_socketio import SocketIO, join_room, leave_room, Namespace, send
+from operator import itemgetter
 from flask import request
+from redis import client
 from storage.redis_controller import RedisControllerInstance
-from custom_types.socket_io_stubs import ClientData
+from custom_types.socket_io_stubs import ClientData, GenPrivateRoomInfo, PrivateRoomData
 
 """
 class SocketIOServer:
@@ -64,14 +66,36 @@ class SocketIODefaultNamespace(Namespace):
         RedisControllerInstance.remove_connected_client_info(request.sid) # type: ignore
         print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
     
-    def on_join_room(self, data: ClientData) -> None:
+    def on_join_private_room(self, data: PrivateRoomData) -> None:
         print("Joining room")
-        print(data)
-        user_name = data["user_name"]
-        sid = request.sid # type: ignore
-        room_name: str = "room" + "_" + user_name + "_" + sid
-        print(join_room(room_name, sid, "/"))
+        try: 
+            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
+            join_room(room_name, socket_id, "/")
+            ## add room name to redis #
+            print(RedisControllerInstance.join_private_room(room_name, socket_id))
+        except Exception as e: 
+            print("Room join exception")
+            print(e)
     
+    def on_leave_private_room(self, data: PrivateRoomData) -> None:
+        print("Leaving Room")
+        try: 
+            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
+            leave_room(room_name, socket_id, "/")
+            print(RedisControllerInstance.leave_private_room(room_name, socket_id))
+        except Exception as e:
+            print("Leave room exception")
+            print(e)
+
+    ## information getters ##
+    def on_get_gen_private_room_data(self) -> GenPrivateRoomInfo: 
+      ## should have authorization ##
+      print("General private room info")
+      try:
+        client_socket_id: str = request.sid # type: ignore
+        self.emit("receive_gen_private_room_info")
+
+
 
 class SocketIOInstance: 
     def __init__(self, app) -> None:
