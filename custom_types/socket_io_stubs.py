@@ -7,6 +7,7 @@ GenPrivateRoomInfo = TypedDict("GenPrivateRoomInfo", {
   "room_names": List[str]
 })
 SpecificPrivateRoomInfo = TypedDict("SpecificPrivateRoomInfo", {
+  "active": bool,
   "room_name": str,
   "connected_clients": List[str],
   "num_of_connected_clients": int

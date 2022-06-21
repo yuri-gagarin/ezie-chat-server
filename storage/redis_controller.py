@@ -1,8 +1,8 @@
 from redis import Redis
 from json import dumps
-from typing import List
+from typing import List, Set
 ## custom stubs / types ##
-from custom_types.socket_io_stubs import GenPrivateRoomInfo, MessageData
+from custom_types.socket_io_stubs import GenPrivateRoomInfo, MessageData, SpecificPrivateRoomInfo
 
 class RedisController: 
     redis_instance = Redis(host="localhost", port=6379, db=0)
@@ -75,12 +75,28 @@ class RedisController:
     def get_number_of_connected_clients(self) -> int:
         return self.redis_instance.llen(self.connected_clients)
     
-    def get_general_private_room_data(self) -> None:
-        byte_set: set[bytes] = self.redis_instance.smembers(self.live_private_rooms)
+    def get_general_private_room_data(self) -> GenPrivateRoomInfo:
+        byte_set: Set[bytes] = self.redis_instance.smembers(self.live_private_rooms)
         room_names: List[str] = []
         for value in byte_set:
             room_names.append(value.decode("utf-8"))
-        print(room_names)
+        return { "total_rooms": len(room_names), "room_names": room_names }
+
+    def get_specific_private_room_data(self, room_name: str) -> SpecificPrivateRoomInfo:
+        room_active: bool = self.redis_instance.sismember(self.live_private_rooms, room_name)
+        connected_clients: List[str] = []
+        num_of_connected_clients: int = 0
+        if (room_active):
+            users_byte_set: Set[bytes] = self.redis_instance.smembers(room_name)
+            for value in users_byte_set:
+                connected_clients.append(value.decode("utf-8"))
+            num_of_connected_clients = len(connected_clients)
+        return { 
+            "active": room_active, 
+            "room_name": room_name, 
+            "connected_clients": connected_clients, 
+            "num_of_connected_clients": num_of_connected_clients
+        }
 
 
 
