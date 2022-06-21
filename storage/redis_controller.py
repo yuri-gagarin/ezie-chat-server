@@ -1,7 +1,8 @@
 from redis import Redis
 from json import dumps
+from typing import List
 ## custom stubs / types ##
-from custom_types.socket_io_stubs import MessageData
+from custom_types.socket_io_stubs import GenPrivateRoomInfo, MessageData
 
 class RedisController: 
     redis_instance = Redis(host="localhost", port=6379, db=0)
@@ -16,6 +17,7 @@ class RedisController:
         return self.redis_instance.lpush(self.connected_clients, socket_id)
     def remove_connected_client_info(self, socket_id: str) -> int:
         return self.redis_instance.lrem(self.connected_clients, 0, socket_id)
+
     ## ROOM HANDLERS ##
     def join_private_room(self, room_name: str, client_socket_id: str) -> bool:
         ## check if room exists ##
@@ -69,9 +71,16 @@ class RedisController:
             ## better error reporting? ##
             return 0
 
+    ## INFORMATION GETTERS ##
     def get_number_of_connected_clients(self) -> int:
-
         return self.redis_instance.llen(self.connected_clients)
+    
+    def get_general_private_room_data(self) -> None:
+        byte_set: set[bytes] = self.redis_instance.smembers(self.live_private_rooms)
+        room_names: List[str] = []
+        for value in byte_set:
+            room_names.append(value.decode("utf-8"))
+        print(room_names)
 
 
 

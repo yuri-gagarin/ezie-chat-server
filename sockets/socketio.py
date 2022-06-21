@@ -1,7 +1,7 @@
-from flask_socketio import SocketIO, join_room, leave_room, Namespace, send
-from operator import itemgetter
+from flask_socketio import SocketIO, join_room, leave_room, Namespace
 from flask import request
-from redis import client
+from typing import Dict
+##
 from storage.redis_controller import RedisControllerInstance
 from custom_types.socket_io_stubs import ClientData, GenPrivateRoomInfo, PrivateRoomData
 
@@ -70,7 +70,7 @@ class SocketIODefaultNamespace(Namespace):
         print("Joining room")
         try: 
             room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
-            join_room(room_name, socket_id, "/")
+            print(join_room(room_name, socket_id, "/"))
             ## add room name to redis #
             print(RedisControllerInstance.join_private_room(room_name, socket_id))
         except Exception as e: 
@@ -88,12 +88,15 @@ class SocketIODefaultNamespace(Namespace):
             print(e)
 
     ## information getters ##
-    def on_get_gen_private_room_data(self) -> GenPrivateRoomInfo: 
-      ## should have authorization ##
-      print("General private room info")
-      try:
-        client_socket_id: str = request.sid # type: ignore
-        self.emit("receive_gen_private_room_info")
+    def on_get_gen_private_room_data(self, data: Dict[str, str]) -> None: 
+        ## should have authorization ##
+        print("General private room info")
+        print(data)
+        try:
+            client_socket_id: str = request.sid # type: ignore
+            RedisControllerInstance.get_general_private_room_data()
+        except Exception as e:
+            print(e)
 
 
 
