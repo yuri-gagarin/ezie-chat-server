@@ -1,6 +1,6 @@
 from typing import List, Literal, TypedDict
 
-PrivateRoomData = TypedDict("PrivateRoomData", { "room_name": str, "socket_id": str, "user_name": str })
+ClientRoomData = TypedDict("GeneralRoomData", { "room_name": str, "client_socket_id": str, "user_name": str })
 
 GenPrivateRoomInfo = TypedDict("GenPrivateRoomInfo", {
   "total_rooms": int,
@@ -25,4 +25,7 @@ QueriedRoomData = TypedDict("QueriedRoomData", {
 
 ClientData = TypedDict("ClientData", { "user_id": str, "socket_id": str, "user_name": str })
 MessageData = TypedDict("MessageData", { "room_name": str, "sender_name": str, "socket_id": str, "message_str": str })
+
+## error responses ##
+GenErrorResponse = TypedDict("GenErrorResponse", { "socket_id": str, "error_messages": List[str] })
 
