@@ -2,7 +2,7 @@ from redis import Redis
 from json import dumps
 from typing import Dict, List, Literal, Set, Tuple
 ## custom stubs / types ##
-from custom_types.socket_io_stubs import GenPrivateRoomInfo, MessageData, QueriedRoomData, SpecificPrivateRoomInfo
+from custom_types.socket_io_stubs import GenAllRoomInfo, MessageData, QueriedRoomData, SpecificRoomInfo
 
 class RedisController: 
     redis_instance = Redis(host="localhost", port=6379, db=0, decode_responses=True, charset="utf-8")
@@ -119,33 +119,57 @@ class RedisController:
 
     ## INFORMATION GETTERS ##
     ## ROOMS AND CLIENTS ##
+    ## client info getters ##
     def get_number_of_connected_clients(self) -> int:
         return self.redis_instance.llen(self.connected_clients)
-    
-    def get_general_private_room_data(self) -> GenPrivateRoomInfo:
-        room_names: Set[str] = self.redis_instance.smembers(self.live_private_rooms)
-        return { "total_rooms": len(room_names), "room_names": room_names }
 
-    def get_specific_private_room_data(self, room_name: str) -> SpecificPrivateRoomInfo:
-        room_active: bool = self.redis_instance.sismember(self.live_private_rooms, room_name)
-        connected_clients: Set[str] = set()
+    ## general room info getters ##
+    def get_all_general_room_data(self) -> GenAllRoomInfo:
+        room_names: List[str] = list(self.redis_instance.smembers(self.live_general_rooms))
+        return { "room_type": "general", "total_rooms": len(room_names), "room_names": room_names }
+
+    def get_all_private_room_data(self) -> GenAllRoomInfo:
+        room_names: List[str] = list(self.redis_instance.smembers(self.live_private_rooms))
+        return { "room_type": "private", "total_rooms": len(room_names), "room_names": room_names }
+    
+    ## specific room info getters ##
+    def get_specific_general_room_data(self, room_name: str) -> SpecificRoomInfo:
+        room_active: bool = self.redis_instance.sismember(self.live_general_rooms, room_name)
+        connected_clients: List[str] = list()
         num_of_connected_clients: int = 0
         if (room_active):
-            connected_clients = self.redis_instance.smembers(room_name)
+            connected_clients = list(self.redis_instance.smembers(room_name))
+            num_of_connected_clients = len(connected_clients)
+        return {
+            "room_type": "general",
+            "active": room_active,
+            "room_name": room_name,
+            "connected_clients": connected_clients,
+            "num_of_connected_clients": num_of_connected_clients
+        }
+    
+    def get_specific_private_room_data(self, room_name: str) -> SpecificRoomInfo:
+        room_active: bool = self.redis_instance.sismember(self.live_private_rooms, room_name)
+        connected_clients: List[str] = list()
+        num_of_connected_clients: int = 0
+        if (room_active):
+            connected_clients = list(self.redis_instance.smembers(room_name))
             num_of_connected_clients = len(connected_clients)
         return { 
+            "room_type": "private",
             "active": room_active, 
             "room_name": room_name, 
             "connected_clients": connected_clients, 
             "num_of_connected_clients": num_of_connected_clients
         }
-    ## MESSAGES ##
+    
+    ## room info getter with clients and messages ##
     def get_complete_room_data(self, room_name: str, room_type: Literal["general", "private"]) -> QueriedRoomData | Literal[False]:
         messages: List[str] = []; num_of_messages: int = 0; num_of_connected_clients: int = 0; 
         if room_type == "general" and self.redis_instance.sismember(self.live_general_rooms, room_name):
-            messages, num_of_messages, num_of_connected_clients = self.__retrieve_room_msgs_and_clients(room_name)
+            connected_clients, messages, num_of_messages, num_of_connected_clients = self.__retrieve_room_msgs_and_clients(room_name)
         elif room_type == "private" and self.redis_instance.sismember(self.live_private_rooms, room_name):
-            messages, num_of_messages, num_of_connected_clients = self.__retrieve_room_msgs_and_clients(room_name)
+            connected_clients, messages, num_of_messages, num_of_connected_clients = self.__retrieve_room_msgs_and_clients(room_name)
         else:
             print("Could not resolve room data")
             return False
@@ -154,22 +178,24 @@ class RedisController:
             "room_type": room_type,
             "room_name": room_name,
             "num_of_connected_clients": num_of_connected_clients,
+            "connected_clients": connected_clients,
             "num_of_messages": num_of_messages,
             "messages": messages
         }
     
-    def __retrieve_room_msgs_and_clients(self, room_name: str) -> Tuple[List[str], int, int]:
-        messages: List[str] = []; num_of_messages: int = 0
+    def __retrieve_room_msgs_and_clients(self, room_name: str) -> Tuple[List[str], List[str], int, int]:
+        messages: List[str] = []; num_of_connected_clients: int = 0; num_of_messages: int = 0
         ## query and convert info on room from redis ##
-        num_of_connected_clients: int = self.redis_instance.scard(room_name)  
+        connected_clients: List[str] = list(self.redis_instance.smembers(room_name))
         messages_dict: Dict[str, str] = self.redis_instance.hgetall(room_name)
 
         for value in messages_dict.values():
             messages.append(value)
         
         num_of_messages = len(messages)
+        num_of_connected_clients = len(connected_clients)
         
-        return messages, num_of_messages, num_of_connected_clients
+        return connected_clients, messages, num_of_messages, num_of_connected_clients
 
 
 RedisControllerInstance = RedisController()

@@ -4,7 +4,7 @@ from flask_socketio import SocketIO, join_room, leave_room, Namespace
 from typing import Dict, List
 ##
 from storage.redis_controller import RedisControllerInstance
-from custom_types.socket_io_stubs import ClientData, GenErrorResponse, GenPrivateRoomInfo, MessageData, ClientRoomData
+from custom_types.socket_io_stubs import ClientData, GenErrorResponse, MessageData, ClientRoomData
 from custom_types.constants import ConnectionConst, RoomEmitConst
 
 class SocketIOChatNamespace(Namespace):
@@ -40,30 +40,10 @@ class SocketIODefaultNamespace(Namespace):
             print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
             self.emit(ConnectionConst.ClientDisconnected)
         except Exception as e:
+            print("DISCONNECTION ERROR") ## TODO look at implementeing messages on exceptions ##
             print(e)
     
     ## JOIN AND LEAVE ROOMS #
-    ## private rooms ##
-    def on_join_private_room(self, data: ClientRoomData) -> None:
-        print("Joining room")
-        try: 
-            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
-            join_room(room_name, socket_id, "/")
-            ## add room name to redis #
-            print(RedisControllerInstance.join_private_room(room_name, socket_id))
-        except Exception as e: 
-            print("Room join exception")
-            print(e)
-    
-    def on_leave_private_room(self, data: ClientRoomData) -> None:
-        print("Leaving Room")
-        try: 
-            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
-            leave_room(room_name, socket_id, "/")
-            print(RedisControllerInstance.leave_private_room(room_name, socket_id))
-        except Exception as e:
-            print("Leave room exception")
-            print(e)
     ## general rooms ##
     def on_join_general_room(self, room_data: ClientRoomData) -> None:
         print("Joining General Room")
@@ -86,6 +66,31 @@ class SocketIODefaultNamespace(Namespace):
         except Exception as e:
             print("ON_JOIN_GENERAL_ROOM ERROR")
             print(e)
+    def on_leave_general_room(self, room_data: ClientRoomData) -> None:
+        pass
+        
+    ## private rooms ##
+    def on_join_private_room(self, data: ClientRoomData) -> None:
+        print("Joining room")
+        try: 
+            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
+            join_room(room_name, socket_id, "/")
+            ## add room name to redis and emit a <JoinPrivateRoomSuccess> event to specific client #
+            RedisControllerInstance.join_private_room(room_name, socket_id)
+        except Exception as e: 
+            print("Room join exception")
+            print(e)
+    
+    def on_leave_private_room(self, data: ClientRoomData) -> None:
+        print("Leaving Room")
+        try: 
+            room_name: str = data["room_name"]; socket_id: str = request.sid # type: ignore
+            leave_room(room_name, socket_id, "/")
+            print(RedisControllerInstance.leave_private_room(room_name, socket_id))
+        except Exception as e:
+            print("Leave room exception")
+            print(e)
+   
 
     ## MESSAGING ##
     def on_new_message(self, message_data: MessageData) -> None:
@@ -105,15 +110,26 @@ class SocketIODefaultNamespace(Namespace):
 
 
     ## information getters ##
-    def on_get_gen_private_room_data(self, data: Dict[str, str]) -> None: 
-        ## should have authorization ##
-        print("General private room info")
-        print(data)
-        try:
-            client_socket_id: str = request.sid # type: ignore
-            RedisControllerInstance.get_general_private_room_data()
+    def on_get_all_general_room_data(self, data: Dict[str, str] | None = None)-> None:
+        ## TODO should have authorization ##
+        client_socket_id: str = request.sid # type: ignore
+        try: 
+            all_general_room_data: str = dumps(RedisControllerInstance.get_all_general_room_data())
+            self.emit(RoomEmitConst.RecAllGeneralRoomData, data=all_general_room_data, room=client_socket_id)
         except Exception as e:
             print(e)
+
+    def on_get_all_private_room_data(self, data: Dict[str, str] | None = None) -> None: 
+        ## TODO should have authorization ##
+        client_socket_id: str = request.sid # type: ignore
+        try:
+            all_private_room_data: str = dumps(RedisControllerInstance.get_all_private_room_data())
+            self.emit(RoomEmitConst.RecAllPrivateRoomData, data=all_private_room_data, room=client_socket_id)
+        except Exception as e:
+            print(e)
+    
+  
+
 
     ## 'PRIVATE' METHODS AND HELPERS ##
     ## validators for sent data ## 

@@ -2,14 +2,16 @@ from typing import List, Literal, Set, TypedDict
 
 ClientRoomData = TypedDict("GeneralRoomData", { "room_name": str, "client_socket_id": str, "user_name": str })
 
-GenPrivateRoomInfo = TypedDict("GenPrivateRoomInfo", {
+GenAllRoomInfo = TypedDict("GenPrivateRoomInfo", {
+  "room_type": Literal["general", "private"],
   "total_rooms": int,
-  "room_names": Set[str]
+  "room_names": List[str]
 })
-SpecificPrivateRoomInfo = TypedDict("SpecificPrivateRoomInfo", {
+SpecificRoomInfo = TypedDict("SpecificPrivateRoomInfo", {
   "active": bool,
+  "room_type": Literal["general", "private"],
   "room_name": str,
-  "connected_clients": Set[str],
+  "connected_clients": List[str],
   "num_of_connected_clients": int
 })
 
@@ -17,6 +19,7 @@ QueriedRoomData = TypedDict("QueriedRoomData", {
   "room_type": Literal["general", "private"],
   "room_name": str,
   "num_of_connected_clients": int,
+  "connected_clients": List[str],
   "num_of_messages": int,
   "messages": List[str]
 })
