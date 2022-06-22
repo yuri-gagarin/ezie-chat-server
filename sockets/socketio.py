@@ -36,7 +36,7 @@ class SocketIODefaultNamespace(Namespace):
     def on_disconnect(self) -> None:
         client_socket_id: str = request.sid # type: ignore
         try:
-            RedisControllerInstance.remove_connected_client_info(client_socket_id) # type: ignore
+            RedisControllerInstance.remove_connected_client_info(client_socket_id)
             print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
             self.emit(ConnectionConst.ClientDisconnected)
         except Exception as e:

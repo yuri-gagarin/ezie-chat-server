@@ -1,15 +1,15 @@
-from typing import List, Literal, TypedDict
+from typing import List, Literal, Set, TypedDict
 
 ClientRoomData = TypedDict("GeneralRoomData", { "room_name": str, "client_socket_id": str, "user_name": str })
 
 GenPrivateRoomInfo = TypedDict("GenPrivateRoomInfo", {
   "total_rooms": int,
-  "room_names": List[str]
+  "room_names": Set[str]
 })
 SpecificPrivateRoomInfo = TypedDict("SpecificPrivateRoomInfo", {
   "active": bool,
   "room_name": str,
-  "connected_clients": List[str],
+  "connected_clients": Set[str],
   "num_of_connected_clients": int
 })
 

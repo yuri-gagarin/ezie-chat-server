@@ -5,7 +5,7 @@ from typing import Dict, List, Literal, Set, Tuple
 from custom_types.socket_io_stubs import GenPrivateRoomInfo, MessageData, QueriedRoomData, SpecificPrivateRoomInfo
 
 class RedisController: 
-    redis_instance = Redis(host="localhost", port=6379, db=0)
+    redis_instance = Redis(host="localhost", port=6379, db=0, decode_responses=True, charset="utf-8")
     connected_clients: str = "connected_clients"
     live_private_rooms: str = "live_private_rooms"
     live_general_rooms: str = "live_general_rooms"
@@ -15,8 +15,24 @@ class RedisController:
 
     def add_connected_client_info(self, socket_id: str) -> int:
         return self.redis_instance.lpush(self.connected_clients, socket_id)
-    def remove_connected_client_info(self, socket_id: str) -> int:
-        return self.redis_instance.lrem(self.connected_clients, 0, socket_id)
+    def remove_connected_client_info(self, socket_id: str) -> bool:
+        num_of_gen_rooms: int = 0; num_of_private_rooms: int = 0
+        ## client socket id needs to be removed from all rooms in which may be ##
+        live_gen_rooms: set[str] = self.redis_instance.smembers(self.live_general_rooms)
+        live_private_rooms: set[str] = self.redis_instance.smembers(self.live_private_rooms)
+        ## check all live rooms the client may be in and remove ##
+        for gen_room_name in live_gen_rooms:
+            if self.redis_instance.sismember(gen_room_name, socket_id): 
+                self.leave_general_room(room_name=gen_room_name, client_socket_id=socket_id)
+                num_of_gen_rooms += 1
+        for private_room_name in live_private_rooms:
+            if self.redis_instance.sismember(private_room_name, socket_id): 
+                self.leave_private_room(room_name=private_room_name, client_socket_id=socket_id)
+                num_of_private_rooms +=1
+        print("disconnected client")
+        print({ "num_of_gen_rooms": num_of_gen_rooms, "num_of_private_rooms": num_of_private_rooms, "client_socket_id": socket_id  })
+        return True    
+
 
     ## ROOM HANDLERS ##
     ## PRIVATE ROOM HANDLERS ##
@@ -107,20 +123,15 @@ class RedisController:
         return self.redis_instance.llen(self.connected_clients)
     
     def get_general_private_room_data(self) -> GenPrivateRoomInfo:
-        byte_set: Set[bytes] = self.redis_instance.smembers(self.live_private_rooms)
-        room_names: List[str] = []
-        for value in byte_set:
-            room_names.append(value.decode("utf-8"))
+        room_names: Set[str] = self.redis_instance.smembers(self.live_private_rooms)
         return { "total_rooms": len(room_names), "room_names": room_names }
 
     def get_specific_private_room_data(self, room_name: str) -> SpecificPrivateRoomInfo:
         room_active: bool = self.redis_instance.sismember(self.live_private_rooms, room_name)
-        connected_clients: List[str] = []
+        connected_clients: Set[str] = set()
         num_of_connected_clients: int = 0
         if (room_active):
-            users_byte_set: Set[bytes] = self.redis_instance.smembers(room_name)
-            for value in users_byte_set:
-                connected_clients.append(value.decode("utf-8"))
+            connected_clients = self.redis_instance.smembers(room_name)
             num_of_connected_clients = len(connected_clients)
         return { 
             "active": room_active, 
@@ -151,10 +162,10 @@ class RedisController:
         messages: List[str] = []; num_of_messages: int = 0
         ## query and convert info on room from redis ##
         num_of_connected_clients: int = self.redis_instance.scard(room_name)  
-        messages_dict: Dict[bytes, bytes] = self.redis_instance.hgetall(room_name)
+        messages_dict: Dict[str, str] = self.redis_instance.hgetall(room_name)
 
         for value in messages_dict.values():
-            messages.append(value.decode("UTF-8"))
+            messages.append(value)
         
         num_of_messages = len(messages)
         
