@@ -3,23 +3,23 @@ from json import dumps
 from typing import Dict, List, Literal, Set, Tuple
 ## custom stubs / types ##
 from custom_types.socket_io_stubs import GenAllRoomInfo, MessageData, QueriedRoomData, SpecificRoomInfo
+from custom_types.constants import RedisDBConstants
 
 class RedisController: 
     redis_instance = Redis(host="localhost", port=6379, db=0, decode_responses=True, charset="utf-8")
-    connected_clients: str = "connected_clients"
-    live_private_rooms: str = "live_private_rooms"
-    live_general_rooms: str = "live_general_rooms"
    
     def setup(self) -> None: 
-        print(self.redis_instance.delete(self.connected_clients))
+        ## TODO - We will need to clear everying on launc? ##
+        ## print(self.redis_instance.delete(self.connected_clients)) ##
+        pass
 
     def add_connected_client_info(self, socket_id: str) -> int:
-        return self.redis_instance.lpush(self.connected_clients, socket_id)
+        return self.redis_instance.sadd(RedisDBConstants.ConnectedClientsSet, socket_id)
     def remove_connected_client_info(self, socket_id: str) -> bool:
         num_of_gen_rooms: int = 0; num_of_private_rooms: int = 0
         ## client socket id needs to be removed from all rooms in which may be ##
-        live_gen_rooms: set[str] = self.redis_instance.smembers(self.live_general_rooms)
-        live_private_rooms: set[str] = self.redis_instance.smembers(self.live_private_rooms)
+        live_gen_rooms: set[str] = self.redis_instance.smembers(RedisDBConstants.LiveGeneralRoomsSet)
+        live_private_rooms: set[str] = self.redis_instance.smembers(RedisDBConstants.LivePrivateRoomsSet)
         ## check all live rooms the client may be in and remove ##
         for gen_room_name in live_gen_rooms:
             if self.redis_instance.sismember(gen_room_name, socket_id): 
@@ -29,6 +29,8 @@ class RedisController:
             if self.redis_instance.sismember(private_room_name, socket_id): 
                 self.leave_private_room(room_name=private_room_name, client_socket_id=socket_id)
                 num_of_private_rooms +=1
+        ## finally disconnect client from <RedisDBConstants.ConnectedClientsSet> ##
+        self.redis_instance.srem(RedisDBConstants.ConnectedClientsSet, socket_id)
         print("disconnected client")
         print({ "num_of_gen_rooms": num_of_gen_rooms, "num_of_private_rooms": num_of_private_rooms, "client_socket_id": socket_id  })
         return True    
@@ -38,24 +40,28 @@ class RedisController:
     ## PRIVATE ROOM HANDLERS ##
     def join_private_room(self, room_name: str, client_socket_id: str) -> bool:
         ## check if room exists ##
-        room_exists: int = self.redis_instance.exists(room_name)
+        redis_named_room_key: str = self.__redis_named_room_key(room_name)
+        room_exists: int | bool  = self.redis_instance.exists(redis_named_room_key) and self.redis_instance.sismember(RedisDBConstants.LivePrivateRoomsSet, room_name)
         if room_exists:
-            self.redis_instance.sadd(room_name, client_socket_id)
+            ## add <client_socket_id> to <RedisDBConstants.LivePrivateRoomsSet> only ##
+            self.redis_instance.sadd(redis_named_room_key, client_socket_id)
             return True
         else:
-            ## add a new room to the <live_private_rooms> set first ##
-            self.redis_instance.sadd(self.live_private_rooms, room_name)
-            self.redis_instance.sadd(room_name, client_socket_id)
+            ## add a new room to the <live_private_rooms> SET first ##
+            ## add <client_socket_id> to the <redis_named_room_key> SET ##
+            self.redis_instance.sadd(RedisDBConstants.LivePrivateRoomsSet, room_name)
+            self.redis_instance.sadd(redis_named_room_key, client_socket_id)
             return True
 
     def leave_private_room(self, room_name: str, client_socket_id: str) -> bool:
         ## check if room exists ##
-        room_exists: int = self.redis_instance.exists(room_name)
+        redis_named_room_key: str = self.__redis_named_room_key(room_name)
+        room_exists: int | bool  = self.redis_instance.exists(redis_named_room_key) and self.redis_instance.sismember(RedisDBConstants.LivePrivateRoomsSet, room_name)
         if room_exists:
-            ## remove client_socket_id from the room ##
-            ## remove the room_name from <self.live_private_rooms> if last <client_socket_id> ##
-            self.redis_instance.srem(room_name, client_socket_id)
-            if self.redis_instance.scard(room_name) == 0: self.redis_instance.srem(self.live_private_rooms, room_name) 
+            ## remove client_socket_id from the <redis_named_room_key> SET ##
+            ## remove the room_name from <RedisDBConstants.LivePrivateRoomsSet> if last <client_socket_id> ##
+            self.redis_instance.srem(redis_named_room_key, client_socket_id)
+            if self.redis_instance.scard(redis_named_room_key) == 0: self.redis_instance.srem(RedisDBConstants.LivePrivateRoomsSet, room_name) 
             return True
         else:
             ## room does not exist ##
@@ -121,7 +127,7 @@ class RedisController:
     ## ROOMS AND CLIENTS ##
     ## client info getters ##
     def get_number_of_connected_clients(self) -> int:
-        return self.redis_instance.llen(self.connected_clients)
+        return self.redis_instance.scard(self.connected_clients)
 
     ## general room info getters ##
     def get_all_general_room_data(self) -> GenAllRoomInfo:
@@ -183,6 +189,10 @@ class RedisController:
             "messages": messages
         }
     
+    ## HELPERS ##
+    def __redis_named_room_key(self, room_name: str) -> str:
+        return room_name.upper() + "_" + RedisDBConstants.NamedRoomSet
+
     def __retrieve_room_msgs_and_clients(self, room_name: str) -> Tuple[List[str], List[str], int, int]:
         messages: List[str] = []; num_of_connected_clients: int = 0; num_of_messages: int = 0
         ## query and convert info on room from redis ##
