@@ -1,7 +1,7 @@
 from json import dumps
 from flask import request
 from flask_socketio import SocketIO, join_room, leave_room, Namespace
-from typing import Dict, List
+from typing import Dict, List, Literal
 ##
 from storage.redis_controller import RedisControllerInstance
 from custom_types.socket_io_stubs import ClientData, GenErrorResponse, MessageData, ClientRoomData
@@ -46,7 +46,6 @@ class SocketIODefaultNamespace(Namespace):
     ## JOIN AND LEAVE ROOMS #
     ## general rooms ##
     def on_join_general_room(self, room_data: ClientRoomData) -> None:
-        print("Joining General Room")
         client_socket_id: str = request.sid # type: ignore 
         try:
             ## ensure that client sent all correct info ##
@@ -55,19 +54,26 @@ class SocketIODefaultNamespace(Namespace):
             ##
             room_name: str = room_data["room_name"]
             if RedisControllerInstance.join_general_room(room_name, client_socket_id): 
-                join_room(room=room_name, sid=client_socket_id, namespace="/")
-                updated_room_data: ClientRoomData = {
-                    "room_name": room_name,
-                    "client_socket_id": client_socket_id,
-                    "user_name": "anonymous"  ## TODO user_name(s) will be implemented later ##
-                }
-                self.emit(RoomEmitConst.JoinGenRoomSuccess, data=updated_room_data, room=client_socket_id)
+               return self.__join_room_and_emit(RoomEmitConst.JoinGenRoomSuccess, client_socket_id, room_name)
             ## TODO: include an error emit ##
         except Exception as e:
             print("ON_JOIN_GENERAL_ROOM ERROR")
             print(e)
+
     def on_leave_general_room(self, room_data: ClientRoomData) -> None:
-        pass
+        client_socket_id: str = request.sid # type: ignore 
+        try:
+            ## ensure that the client sent all correct info ##
+            input_errors: List[str] = self.__validate_join_room_data(room_data)
+            if input_errors: return self.__send_error_response(client_socket_id, input_errors)
+            ##
+            room_name: str = room_data["room_name"]
+            if RedisControllerInstance.leave_general_room(room_name, client_socket_id):
+               return self.__leave_room_and_emit(RoomEmitConst.LeaveGenRoomSuccess, client_socket_id, room_name)
+            ## TODO: include an error emit ##
+        except Exception as e:
+            print("ON_LEAVE_GENERAL_ROOM ERROR")
+            print(e)
         
     ## private rooms ##
     def on_join_private_room(self, data: ClientRoomData) -> None:
@@ -132,6 +138,25 @@ class SocketIODefaultNamespace(Namespace):
 
 
     ## 'PRIVATE' METHODS AND HELPERS ##
+    ## action helpers ##
+    def __join_room_and_emit(self, emit_event: Literal[RoomEmitConst.JoinGenRoomSuccess, RoomEmitConst.JoinPrivateRoomSuccess], client_socket_id: str, room_name: str, name_space: str = "/") -> None:
+        join_room(room=room_name, sid=client_socket_id, namespace=name_space)
+        updated_room_data: ClientRoomData = {
+            "room_name": room_name,
+            "client_socket_id": client_socket_id,
+            "user_name": "anonymous"  ## TODO user_name(s) will be implemented later ##
+        }
+        self.emit(emit_event, data=updated_room_data, room=client_socket_id)
+    
+    def __leave_room_and_emit (self, emit_event: Literal[RoomEmitConst.LeaveGenRoomSuccess, RoomEmitConst.LeavePrivateRoomSuccess], client_socket_id: str, room_name: str, name_space: str = "/") -> None:
+        leave_room(room=room_name, sid=client_socket_id, namespace=name_space)
+        updated_room_data: ClientRoomData = {
+            "room_name": room_name,
+            "client_socket_id": client_socket_id,
+            "user_name": "anonymous"  ## TODO user_name(s) will be implemented later ##
+        }
+        self.emit(emit_event, data=updated_room_data, room=client_socket_id)
+
     ## validators for sent data ## 
     def __validate_message_data(self, message_data: MessageData) -> List[str]:
         input_errors: List[str] = []
@@ -153,7 +178,7 @@ class SocketIODefaultNamespace(Namespace):
 
 class SocketIOInstance: 
     def __init__(self, app) -> None:
-        self.socketio = SocketIO(app, cors_allowed_origins='*', logger=True, engineio_logger=True)
+        self.socketio = SocketIO(app, cors_allowed_origins='*')
         self.app = app
     
     def run(self) -> "SocketIOInstance":
