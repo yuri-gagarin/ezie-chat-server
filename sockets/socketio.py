@@ -1,52 +1,11 @@
-from flask_socketio import SocketIO, join_room, leave_room, Namespace
+from json import dumps
 from flask import request
-from typing import Dict
+from flask_socketio import SocketIO, join_room, leave_room, Namespace
+from typing import Dict, List
 ##
 from storage.redis_controller import RedisControllerInstance
-from custom_types.socket_io_stubs import ClientData, GenPrivateRoomInfo, PrivateRoomData
+from custom_types.socket_io_stubs import ClientData, GenPrivateRoomInfo, MessageData, PrivateRoomData
 
-"""
-class SocketIOServer:
-  redisInstance = RedisController()
-
-  def __init__(self, app):
-    self.socketio = SocketIO(app, cors_allowed_origins='*')
-    self.app = app
-  
-  def connection(self) -> None:
-    @self.socketio.on("connect")
-    def handle_connection(data: str) -> None:
-      client_info = { 'socket_id': request.sid, 'namespace': request.namespace, 'message': "You are now connected live" } # type: ignore
-      self.redisInstance.add_connected_client_info(request.sid) # type: ignore
-      self.socketio.emit("client connected", client_info)
-      print("Client has connected")
-      print("Number of connected clients is: " + str(self.redisInstance.get_number_of_connected_clients()))
-    
-    @self.socketio.on("disconnect")
-    def handle_disconnection():
-      print("Client has disconnected")
-      self.redisInstance.remove_connected_client_info(request.sid) # type: ignore
-      print("Number of connected clients is: " + str(self.redisInstance.get_number_of_connected_clients()))
-  
-  def room_handlers(self) -> None:
-    @self.socketio.on("join-room")
-    def join_room(client_user_data: ClientData) -> None:
-      print("Joining a room")
-      f = client_user_data["socket_id"]
-
-  def message_listeners(self) -> None:
-    @self.socketio.on("message")
-    def handle_message(message_data: str) -> None:
-      print('received message: ' + message_data)
-
-  def run(self) -> 'SocketIOServer':
-    self.connection()
-    self.message_listeners()
-    self.room_handlers()
-    self.socketio.run(self.app)
-    self.redisInstance.setup()
-    return self
-"""
 class SocketIOChatNamespace(Namespace):
     def on_connect(self, data: ClientData) -> None:
         print("Connected to Room")
@@ -57,7 +16,7 @@ class SocketIODefaultNamespace(Namespace):
     def on_connect(self, data: str) -> None:
         client_info = { 'socket_id': request.sid, 'namespace': request.namespace, 'message': "You are now connected live" } # type: ignore
         RedisControllerInstance.add_connected_client_info(request.sid) # type: ignore
-        self.socketio.emit("client connected", client_info)
+        self.emit("client connected", client_info)
         print("Client has connected")
         print("Number of connected clients is: " + str(RedisControllerInstance.get_number_of_connected_clients()))
 
@@ -86,6 +45,23 @@ class SocketIODefaultNamespace(Namespace):
         except Exception as e:
             print("Leave room exception")
             print(e)
+    
+    ## MESSAGING ##
+    def on_new_message(self, message_data: MessageData) -> None:
+        sender_socket_id: str = request.sid # type: ignore 
+        try:
+            ## ensure that client sent all correct info ##
+            input_errors: List[str] = self.__validate_message_data(message_data)
+            if input_errors: self.__send_error_response(sender_socket_id, input_errors)
+            ## save the message to the specfic room message hash ##
+            ## emit the message to all in room BUT the sender ##
+            room_name: str = message_data["room_name"]
+            if RedisControllerInstance.handle_new_message(message_data): self.emit("receive_new_message", data=message_data, room=room_name, include_self=False)
+            ## TODO: include an error emit ##
+        except Exception as e:
+            print("ON_NEW_MESSAGE ERROR")
+            print(e)
+
 
     ## information getters ##
     def on_get_gen_private_room_data(self, data: Dict[str, str]) -> None: 
@@ -98,7 +74,18 @@ class SocketIODefaultNamespace(Namespace):
         except Exception as e:
             print(e)
 
+    ## 'PRIVATE' METHODS AND HELPERS ##
+    def __validate_message_data(self, message_data: MessageData) -> List[str]:
+        input_errors: List[str] = []
+        
+        if not message_data["room_name"]: input_errors.append("No room name sent")
+        if not message_data["message_str"]: input_errors.append("No message string sent")
 
+        return input_errors
+
+    def __send_error_response(self, sender_socket_id: str, input_errors: List[str]) -> None:
+        message_JSON: str = dumps({ "erros": input_errors })
+        return self.emit("wrong_data_error", data=message_JSON, to=sender_socket_id)
 
 class SocketIOInstance: 
     def __init__(self, app) -> None:
