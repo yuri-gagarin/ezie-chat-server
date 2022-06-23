@@ -15,6 +15,9 @@ class RoomEmitConst(str, enum.Enum):
     RecSpecificPrivateRoomData = "rec_specific_private_rooom_data"
     RecCompleteRoomData = "rec_complete_room_data"
 
+class ErrorEmitConst(str, enum.Enum):
+    CaughtExceptionError = "caught_exception_error"
+    WrongDataError = "wrong_data_error"
 
 class ConnectionConst(str, enum.Enum):
     NewClientConnected = "new_client_connected"
@@ -28,3 +31,4 @@ class RedisDBConstants(str, enum.Enum):
     LivePrivateRoomsSet = "LIVE_PRIVATE_ROOMS_SET"
     NamedRoomSet = "NAMED_ROOM_SET"
     MessagesList = "MESSAGES_LIST"
+

@@ -216,15 +216,16 @@ class RedisController:
         }
     
     ## HELPERS ##
+    ## public helpers ##
+    def check_if_room_exists(self, room_name: str) -> bool:
+        return self.redis_instance.sismember(room_name, RedisDBConstants.LiveGeneralRoomsSet) or self.redis_instance.sismember(room_name, RedisDBConstants.LivePrivateRoomsSet)
+    ## private helpers ##
     def __redis_named_room_key(self, room_name: str) -> str:
         return room_name.upper() + "_" + RedisDBConstants.NamedRoomSet
     
     def __redis_messages_list_key(self, room_name: str) -> str:
         return room_name.upper() + "_" + RedisDBConstants.MessagesList
 
-    def __retrieve_room_messages(self, room_name) -> List[Dict[str, str]]: 
-        
-        return []
     def __retrieve_room_msgs_and_clients(self, room_name: str) -> Tuple[List[str], List[str], int, int]:
         messages: List[str] = []; num_of_connected_clients: int = 0; num_of_messages: int = 0
         ## query and convert info on room from redis ##
