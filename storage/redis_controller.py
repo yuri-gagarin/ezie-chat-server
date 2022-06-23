@@ -1,5 +1,5 @@
 from redis import Redis
-from json import dumps
+from json import dumps, loads
 from typing import Dict, List, Literal, Set, Tuple
 ## custom stubs / types ##
 from custom_types.socket_io_stubs import GenAllRoomInfo, MessageData, QueriedRoomData, SpecificRoomInfo
@@ -124,12 +124,15 @@ class RedisController:
             return 0
         '''
     ## retrieve specific conversation ##
-    def get_conversation_messages(self, room_name: str, start: int = 0, end: int = -1) -> List[str]:
+    def get_conversation_messages(self, room_name: str, start: int = 0, end: int = -1) -> List[Dict[str, str]]:
+        messages_list: List[Dict[str, str]] = []
         messages_list_key: str = self.__redis_messages_list_key(room_name=room_name)
-        conversation_messages: List[str] = self.redis_instance.lrange(messages_list_key, start=start, end=end)
+        queried_messages: List[str] = self.redis_instance.lrange(messages_list_key, start=start, end=end)
         ## TODO ##
         ## are we converting back to Dict here or sending back as List[str] ?? ##
-        return conversation_messages
+        for string_message in queried_messages:
+            messages_list.append(loads(string_message))
+        return messages_list
 
     ## MESSAGE DELETION ##
     def remove_specific_message(self, room_name: str, message_position: int) -> int:
