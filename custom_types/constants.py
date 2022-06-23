@@ -1,5 +1,8 @@
 import enum
 
+class MessageEmitConst(str, enum.Enum):
+    RecConvoMessages = "rec_convo_messages"
+
 class RoomEmitConst(str, enum.Enum):
     JoinGenRoomSuccess = "join_general_room_success"
     JoinPrivateRoomSuccess = "join_private_room_success"
@@ -12,6 +15,7 @@ class RoomEmitConst(str, enum.Enum):
     RecSpecificPrivateRoomData = "rec_specific_private_rooom_data"
     RecCompleteRoomData = "rec_complete_room_data"
 
+
 class ConnectionConst(str, enum.Enum):
     NewClientConnected = "new_client_connected"
     ClientDisconnected = "client_disconnected"
@@ -23,4 +27,4 @@ class RedisDBConstants(str, enum.Enum):
     LiveGeneralRoomsSet = "LIVE_GENERAL_ROOMS_SET"
     LivePrivateRoomsSet = "LIVE_PRIVATE_ROOMS_SET"
     NamedRoomSet = "NAMED_ROOM_SET"
-    NamedMessageZset = "NAMED_MESSAGE_ZSET"
+    MessagesList = "MESSAGES_LIST"

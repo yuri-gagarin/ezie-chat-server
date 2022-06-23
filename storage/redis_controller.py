@@ -103,10 +103,16 @@ class RedisController:
             return False
 
     ## MESSAGE HANDLERS ## 
-    ## NEW MESSAGE HANDLER ##
+    ## new message handler ##
     def handle_new_message(self, message_data: MessageData) -> int:
         ## <message_position> is needed for exact deletion of messages from hash ##
         ## room must already exist for a new message to be processed ##
+        print(message_data)
+        message_data_string: str = dumps(message_data)
+        messages_list_key: str = self.__redis_messages_list_key(room_name=message_data["room_name"])
+        self.redis_instance.lpush(messages_list_key, message_data_string)
+        return 0
+        '''
         room_name: str = message_data["room_name"]
         room_exists: bool = self.redis_instance.sismember(RedisDBConstants.LiveGeneralRoomsSet, room_name) or self.redis_instance.sismember(RedisDBConstants.LivePrivateRoomsSet, room_name)
         if room_exists:
@@ -116,6 +122,15 @@ class RedisController:
         else:
             ## TODO Insert custom errors ##
             return 0
+        '''
+    ## retrieve specific conversation ##
+    def get_conversation_messages(self, room_name: str, start: int = 0, end: int = -1) -> List[str]:
+        messages_list_key: str = self.__redis_messages_list_key(room_name=room_name)
+        conversation_messages: List[str] = self.redis_instance.lrange(messages_list_key, start=start, end=end)
+        ## TODO ##
+        ## are we converting back to Dict here or sending back as List[str] ?? ##
+        return conversation_messages
+
     ## MESSAGE DELETION ##
     def remove_specific_message(self, room_name: str, message_position: int) -> int:
         if self.redis_instance.hexists(room_name, str(message_position)):
@@ -200,7 +215,13 @@ class RedisController:
     ## HELPERS ##
     def __redis_named_room_key(self, room_name: str) -> str:
         return room_name.upper() + "_" + RedisDBConstants.NamedRoomSet
+    
+    def __redis_messages_list_key(self, room_name: str) -> str:
+        return room_name.upper() + "_" + RedisDBConstants.MessagesList
 
+    def __retrieve_room_messages(self, room_name) -> List[Dict[str, str]]: 
+        
+        return []
     def __retrieve_room_msgs_and_clients(self, room_name: str) -> Tuple[List[str], List[str], int, int]:
         messages: List[str] = []; num_of_connected_clients: int = 0; num_of_messages: int = 0
         ## query and convert info on room from redis ##

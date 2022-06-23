@@ -27,7 +27,7 @@ QueriedRoomData = TypedDict("QueriedRoomData", {
 
 
 ClientData = TypedDict("ClientData", { "user_id": str, "socket_id": str, "user_name": str })
-MessageData = TypedDict("MessageData", { "room_name": str, "sender_name": str, "socket_id": str, "message_str": str })
+MessageData = TypedDict("MessageData", { "room_name": str, "sender_name": str, "client_socket_id": str, "message_str": str })
 
 ## error responses ##
 GenErrorResponse = TypedDict("GenErrorResponse", { "socket_id": str, "error_messages": List[str] })

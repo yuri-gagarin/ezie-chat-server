@@ -5,7 +5,7 @@ from typing import Dict, List, Literal
 ##
 from storage.redis_controller import RedisControllerInstance
 from custom_types.socket_io_stubs import ClientData, GenErrorResponse, MessageData, ClientRoomData
-from custom_types.constants import ConnectionConst, RoomEmitConst
+from custom_types.constants import ConnectionConst, MessageEmitConst, RoomEmitConst
 
 class SocketIOChatNamespace(Namespace):
     def on_connect(self, data: ClientData) -> None:
@@ -100,7 +100,9 @@ class SocketIODefaultNamespace(Namespace):
 
     ## MESSAGING ##
     def on_new_message(self, message_data: MessageData) -> None:
-        sender_socket_id: str = request.sid # type: ignore 
+        print(message_data)
+        RedisControllerInstance.handle_new_message(message_data)
+        '''
         try:
             ## ensure that client sent all correct info ##
             input_errors: List[str] = self.__validate_message_data(message_data)
@@ -113,10 +115,22 @@ class SocketIODefaultNamespace(Namespace):
         except Exception as e:
             print("ON_NEW_MESSAGE ERROR")
             print(e)
+        '''
 
 
-    ## information getters ##
-    def on_get_all_general_room_data(self, data: Dict[str, str] | None = None)-> None:
+    ## INFORMATION GETTERS ##
+    def on_get_conversation(self, room_name: str) -> None:
+        sender_socket_id: str = request.sid # type: ignore 
+        try:
+            if not room_name: self.__send_error_response(sender_socket_id, input_errors=[ "Could not resolve room name to fetch" ])
+            conversation_messages = RedisControllerInstance.get_conversation_messages(room_name)
+            self.emit(MessageEmitConst, conversation_messages, room=sender_socket_id)
+        except Exception as e:
+            print("ON_GET_CONVERSATION EXCEPTION")
+            ## TODO we will need an error here as well ##
+
+
+    def on_get_all_general_room_data(self, data: Dict[str, str] | None = None) -> None:
         ## TODO should have authorization ##
         client_socket_id: str = request.sid # type: ignore
         try: 
