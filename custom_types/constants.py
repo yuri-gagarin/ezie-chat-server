@@ -17,6 +17,10 @@ class RoomEmitConst(str, enum.Enum):
 
 class ErrorEmitConst(str, enum.Enum):
     CaughtExceptionError = "caught_exception_error"
+    GeneralClientError = "general_client_error"
+    NewMessageError = "new_message_error"
+    RoomJoinError = "room_join_error"
+    RoomLeaveError = "room_leave_error"
     WrongDataError = "wrong_data_error"
 
 class ConnectionConst(str, enum.Enum):

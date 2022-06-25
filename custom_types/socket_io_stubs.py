@@ -1,4 +1,5 @@
 from typing import List, Literal, Set, TypedDict
+from .constants import ErrorEmitConst
 
 ClientRoomData = TypedDict("GeneralRoomData", { "room_name": str, "client_socket_id": str, "user_name": str })
 
@@ -31,5 +32,9 @@ MessageData = TypedDict("MessageData", { "room_name": str, "sender_name": str, "
 GetConvoMessagesData = TypedDict("GetConvoMessagesData", { "room_name": str, "start": int, "end": int })
 
 ## error responses ##
+ErrorEmitLiteral = Literal[
+  ErrorEmitConst.CaughtExceptionError, ErrorEmitConst.GeneralClientError, ErrorEmitConst.NewMessageError,
+  ErrorEmitConst.RoomJoinError, ErrorEmitConst.RoomLeaveError, ErrorEmitConst.WrongDataError
+]
 GenErrorResponse = TypedDict("GenErrorResponse", { "socket_id": str, "error_messages": List[str] })
 
